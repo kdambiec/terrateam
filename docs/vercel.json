@@ -447,42 +447,42 @@
     },
     {
       "source": "/quickstart/self-hosted/aws",
-      "destination": "https://stategraph.com/docs/admin/self-hosting/ecs?from=terrateam",
+      "destination": "https://stategraph.com/docs/admin/self-hosting/open-source/ecs?from=terrateam",
       "permanent": true
     },
     {
       "source": "/quickstart/self-hosted/aws/",
-      "destination": "https://stategraph.com/docs/admin/self-hosting/ecs?from=terrateam",
+      "destination": "https://stategraph.com/docs/admin/self-hosting/open-source/ecs?from=terrateam",
       "permanent": true
     },
     {
       "source": "/quickstart/self-hosted/docker-compose",
-      "destination": "https://stategraph.com/docs/get-started/quickstart/self-hosted?from=terrateam",
+      "destination": "https://stategraph.com/docs/get-started/quickstart/self-hosted-open-source?from=terrateam",
       "permanent": true
     },
     {
       "source": "/quickstart/self-hosted/docker-compose/",
-      "destination": "https://stategraph.com/docs/get-started/quickstart/self-hosted?from=terrateam",
+      "destination": "https://stategraph.com/docs/get-started/quickstart/self-hosted-open-source?from=terrateam",
       "permanent": true
     },
     {
       "source": "/quickstart/self-hosted",
-      "destination": "https://stategraph.com/docs/get-started/quickstart/self-hosted?from=terrateam",
+      "destination": "https://stategraph.com/docs/get-started/quickstart/self-hosted-open-source?from=terrateam",
       "permanent": true
     },
     {
       "source": "/quickstart/self-hosted/",
-      "destination": "https://stategraph.com/docs/get-started/quickstart/self-hosted?from=terrateam",
+      "destination": "https://stategraph.com/docs/get-started/quickstart/self-hosted-open-source?from=terrateam",
       "permanent": true
     },
     {
       "source": "/quickstart/self-hosted/kubernetes",
-      "destination": "https://stategraph.com/docs/admin/self-hosting/kubernetes?from=terrateam",
+      "destination": "https://stategraph.com/docs/admin/self-hosting/open-source/kubernetes?from=terrateam",
       "permanent": true
     },
     {
       "source": "/quickstart/self-hosted/kubernetes/",
-      "destination": "https://stategraph.com/docs/admin/self-hosting/kubernetes?from=terrateam",
+      "destination": "https://stategraph.com/docs/admin/self-hosting/open-source/kubernetes?from=terrateam",
       "permanent": true
     },
     {
@@ -997,22 +997,22 @@
     },
     {
       "source": "/self-hosted/environment-variables",
-      "destination": "https://stategraph.com/docs/admin/operations/environment-variables?from=terrateam",
+      "destination": "https://stategraph.com/docs/admin/self-hosting/open-source/environment-variables?from=terrateam",
       "permanent": true
     },
     {
       "source": "/self-hosted/environment-variables/",
-      "destination": "https://stategraph.com/docs/admin/operations/environment-variables?from=terrateam",
+      "destination": "https://stategraph.com/docs/admin/self-hosting/open-source/environment-variables?from=terrateam",
       "permanent": true
     },
     {
       "source": "/self-hosted/observability-metrics",
-      "destination": "https://stategraph.com/docs/admin/operations/observability?from=terrateam",
+      "destination": "https://stategraph.com/docs/admin/self-hosting/open-source/observability?from=terrateam",
       "permanent": true
     },
     {
       "source": "/self-hosted/observability-metrics/",
-      "destination": "https://stategraph.com/docs/admin/operations/observability?from=terrateam",
+      "destination": "https://stategraph.com/docs/admin/self-hosting/open-source/observability?from=terrateam",
       "permanent": true
     },
     {
