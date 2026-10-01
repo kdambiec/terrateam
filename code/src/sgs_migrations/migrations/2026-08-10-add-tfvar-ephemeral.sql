@@ -1,0 +1,11 @@
+-- transaction_logs.action has a foreign key to transaction_log_actions, so the
+-- action must exist before any client can append a tfvar_ephemeral entry.
+-- Additive: no existing row changes and no column is rewritten, so an older
+-- server keeps working against a migrated database.
+--
+-- The object_type stays 'tfvar', already registered by 2026-03-13-add-tfvar.sql.
+-- That is deliberate: transaction_logs_tfvar_unique_idx and the tfvar_upsert CTE
+-- in upsert_tx_logs_from_tmp.sql both key on object_type rather than action, so
+-- reusing it makes an ephemeral tfvar dedupe per (tx_id, state_id, node_id)
+-- exactly like an ordinary one.
+insert into transaction_log_actions (id) values ('tfvar_ephemeral')

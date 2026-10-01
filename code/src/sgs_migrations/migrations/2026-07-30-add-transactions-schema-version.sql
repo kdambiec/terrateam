@@ -1,0 +1,11 @@
+-- The Stategraph state schema version the client that opened this transaction
+-- understands.  Recorded here rather than only checked at create time because an
+-- import-shaped apply (replace=overwrite or replace=hcl) stamps it onto
+-- states.schema_version for every state it rewrites -- the transaction is what
+-- knows which representation its entries were encoded in.
+--
+-- Nullable: transactions created before this column existed have no value, and
+-- the tx-create gate rejects a client that does not send one, so a NULL here can
+-- only be a pre-existing row.  A delta apply never reads it, since a delta
+-- rewrites only the entries it names and cannot vouch for the rest of the state.
+alter table transactions add column schema_version integer;

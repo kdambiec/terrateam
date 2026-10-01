@@ -1,0 +1,18 @@
+-- Add the on-disk permission bits of a collected file to the files table.
+--
+-- [archive_file] hashes each zip member's MODE as well as its bytes, so a bundle
+-- staged at a uniform mode archives to a different output_md5 than the tree tofu
+-- zips over, and every resource reading that hash is replaced with nothing in the
+-- plan to say why.  The mode is a property of the checkout the client collected
+-- from, so the server cannot derive it from the rows it already holds -- which is
+-- why sg_state_schema_version is bumped alongside this migration and every
+-- existing state re-imports before its next plan.
+--
+-- Defaults to 384 (0o600), which is exactly what the actuator stages a file at
+-- today.  A row written before this migration therefore keeps producing the
+-- bundle it always did, until the re-import replaces it with the real mode.
+--
+-- Additive and backwards compatible: PostgreSQL applies an ADD COLUMN with a
+-- non-volatile default as a metadata-only change, and older code inserting a row
+-- without naming the column picks up that default.
+alter table files add column mode integer not null default 384;

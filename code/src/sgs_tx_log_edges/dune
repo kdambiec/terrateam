@@ -1,0 +1,3 @@
+(library
+ (name sgs_tx_log_edges)
+ (libraries containers sg_tf_references sgs_tx_log_data))

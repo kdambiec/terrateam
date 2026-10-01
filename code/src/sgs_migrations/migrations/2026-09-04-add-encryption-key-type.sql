@@ -1,0 +1,17 @@
+-- Session JWTs move to RS256 (TER-005). The RSA key lives in encryption_keys
+-- next to the pre-RS256 HMAC secrets, told apart by `type`.
+--
+-- `type` names the key MATERIAL, not the role it plays. Role is positional:
+-- the lowest-ranked 'rsa' row signs and every 'rsa' row verifies, so rotating
+-- adds a row rather than rewriting the type of the row it replaces.
+--
+-- No seed row for 'rsa': postgres cannot generate an RSA key, so the server
+-- writes one on first boot after this migration.
+--
+-- `data` keeps its contract for both types -- hex of the key bytes, PEM bytes
+-- for an 'rsa' row -- so a server still running the pre-RS256 query
+-- (`select data from encryption_keys order by rank`, which hex-decodes every
+-- row it reads) takes an 'rsa' row as one more inert HMAC verifier instead of
+-- failing on it. That is what lets this migration land before the deploy that
+-- reads the new column.
+alter table encryption_keys add column type text not null default 'hmac';

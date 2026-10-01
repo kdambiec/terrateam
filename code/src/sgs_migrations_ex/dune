@@ -1,0 +1,19 @@
+(library
+ (name sgs_migrations_ex)
+ (wrapped false)
+ (libraries
+  abb
+  abbs
+  containers
+  hcl_parser_value
+  hcl_parser_value_json
+  logs
+  pgsql_io
+  sg_caps_json
+  sg_caps_legacy_conversion
+  sg_caps_wire
+  sg_tf_references
+  sgs_session_caps
+  sgs_tx_log_data
+  sgs_tx_log_edges
+  uuidm))

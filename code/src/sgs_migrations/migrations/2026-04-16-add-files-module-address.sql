@@ -1,0 +1,13 @@
+-- Add module_address to files.
+--
+-- Stores the fully-qualified address of the module that owns this file
+-- (e.g. "module.child.module.grandchild"), or NULL for the root module.
+--
+-- A file that is referenced by multiple modules gets recorded in the database
+-- once for each reference.
+--
+-- This is populated at tx_log insert time from the collector's module scope.
+-- Storing it here eliminates the need to retroactively reconstruct module
+-- context at reify time by joining filepath_refs with hcl and searching
+-- the file_refs JSONB array of in-flight transactions.
+ALTER TABLE files ADD COLUMN module_address text;
