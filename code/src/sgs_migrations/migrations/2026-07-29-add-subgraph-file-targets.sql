@@ -1,0 +1,35 @@
+-- Store where a collected file's bytes must be staged in the bundle, resolved
+-- once over the whole transaction.
+--
+-- A file's destination is one of two derivations.  Sg_bundle_paths.classify needs
+-- only (module_source, module_address, filepath), all present on the file row, so
+-- it is page-independent.  But a read whose ${path.*} anchor reached it through
+-- var/local indirection is instead staged where that anchor RESOLVES IN THE
+-- BUNDLE, and answering that needs the canonical path expression the client ships
+-- on the CONSUMING HCL row (hints.file_reads, keyed by call_key).  File rows carry
+-- no call_key and no hints, so the page reader recovered it by folding the HCL
+-- rows IN ITS OWN PAGE.
+--
+-- When a file row and its HCL consumer land in different pages that fold finds
+-- nothing, the bytes fall through to the hashed escape bucket -- while the read
+-- itself is left authored and resolves somewhere else entirely.  The plan then
+-- dies on `filemd5(...): no such file or directory`, pointing at a directory one
+-- level from where the bytes actually are.  Pagination is a function of subgraph
+-- size, so this appears on large configurations and on no small one.
+--
+-- Resolving it at generation, where the whole subgraph is in scope, leaves one
+-- derivation computed once and read many -- which is what FIXME STORED_TARGETS in
+-- sgs_reifier_file_dispatch.ml asked for.
+--
+-- A JSON ARRAY of targets, not one: a file can be read from several call sites
+-- whose anchors resolve to different bundle directories.  The per-page code kept
+-- one target per (module_address, filepath) and let the last row in fold order
+-- win, so one of those readers was already silently broken.  Staging a copy per
+-- destination is free -- identical bytes cannot collide, since the collision check
+-- fires only on two DIFFERENT hashes at ONE target.
+--
+-- Nullable so the migration is additive: no table rewrite, no backfill.  A cache
+-- populated by an older binary is not read a row at a time, though -- the page
+-- reader's cache-existence probe rejects it outright and the transaction is
+-- re-previewed -- so nothing serves a bundle off NULL targets.
+ALTER TABLE transaction_subgraph_nodes ADD COLUMN file_targets jsonb;

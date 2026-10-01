@@ -1,0 +1,19 @@
+-- Stategraph's own schema version for a state's HCL-derived data.  This is NOT
+-- the Terraform provider schema version (instances.schema_version) nor the TF
+-- state file format version (states_metadata.version); it versions the shape of
+-- what Stategraph itself derives and stores.
+--
+-- Some representation changes cannot be a DB migration at all: the new data is
+-- computed from the original config by the client, which has the resolver, the
+-- scope and the working tree, so the server cannot back-fill it from the rows it
+-- already holds (hcl.file_refs, hcl.path_attrs and hcl.hints are all of this
+-- kind).  The migration for those is a re-import.  This column records which
+-- representation the stored data is at, so a client can tell that a state is
+-- behind and re-import it before operating on it.
+--
+-- Defaults to 0 while sg_state_schema_version is 1, so every state that exists
+-- today reads as behind and is upgraded on its next run.  Additive and
+-- backwards compatible: sql/insert_state.sql names its columns explicitly, so
+-- older code inserting a row picks up the default, and Postgres applies an
+-- ADD COLUMN with a non-volatile default as a metadata-only change.
+alter table states add column schema_version integer not null default 0;

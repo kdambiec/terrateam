@@ -1,0 +1,9 @@
+(tests
+ (names test test_safe)
+ (libraries
+  containers
+  hcl_ast
+  hcl_parser_value
+  hcl_parser_value_json
+  oth
+  yojson))

@@ -1,0 +1,23 @@
+-- Carry each cached subgraph node's STATE HASH ID on the row.
+--
+-- The state_hash_id (which names the state's [state_<state_hash_id>/] directory in
+-- the bundle) is derived by Name_mangler.create: sha256 of the state's uuid,
+-- truncated to the shortest length that keeps every state in THIS TRANSACTION's
+-- subgraph distinct.  It is therefore not an attribute of the state -- the same
+-- state can carry a different id in two different transactions -- so it cannot be
+-- joined from [states] at read time the way [workspace] can.  The page reader was
+-- instead re-deriving it on EVERY page: SELECT DISTINCT over the tx's ~10^5
+-- transaction_subgraphs rows to recover a list of one to three, then rebuilding
+-- the mangler, to answer a question about each individual row.
+--
+-- Written by insert_reifier_subgraph_nodes.sql from pairs the generation step
+-- passes in, so the value is fixed in the same statement that materializes the
+-- row.  Deliberately not a later pass: the column denormalizes something derived
+-- from state_id, and a row whose id disagreed with the resolved length would be
+-- silently wrong rather than loudly missing.
+--
+-- Nullable so the migration is additive: no table rewrite, no backfill.  There is
+-- no derivation fallback for a NULL, though -- the state_hash_id is fixed by the
+-- same statement that materializes the row, and the column ships with every writer
+-- of it, so a row without one is a row no deployed binary wrote.
+ALTER TABLE transaction_subgraph_nodes ADD COLUMN state_hash_id text;
