@@ -2975,12 +2975,25 @@ module Apply_requirements = struct
       all_of_missing
       @ if require_completed_reviews && not required_reviews_passed then requested_reviews else []
     in
+    let matches_to_string matches =
+      CCString.concat
+        ","
+        (CCList.map Terrat_base_repo_config_v1.Access_control.Match.to_string matches)
+    in
     Logs.info (fun m ->
         m
-          "%s : COMPUTE_APPROVED : all_of_passed=%s : any_of_passed=%s"
+          "%s : COMPUTE_APPROVED : all_of_passed=%s : any_of_passed=%s : \
+           require_completed_reviews=%s : review_decision=%s : required_reviews_passed=%s : \
+           approvers=%s : requested_reviews=%s : missing_reviews=%s"
           request_id
           (Bool.to_string all_of_passed)
-          (Bool.to_string any_of_passed));
+          (Bool.to_string any_of_passed)
+          (Bool.to_string require_completed_reviews)
+          (CCOption.map_or ~default:"none" Terrat_pull_request_review.Decision.show review_decision)
+          (Bool.to_string required_reviews_passed)
+          (CCString.concat "," (CCList.filter_map (fun { Tprr.user; _ } -> user) approved_reviews))
+          (matches_to_string requested_reviews)
+          (matches_to_string missing_reviews));
     (* Considered approved if all "all_of" passes and any "any_of" passes OR
          "all of" and "any of" are empty and the approvals is more than count *)
     ( all_of_passed && any_of_passed && required_reviews_passed,
