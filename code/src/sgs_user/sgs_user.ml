@@ -108,6 +108,13 @@ module Sql = struct
       /^ [%blob "./sql/select_user_capabilities_for_update.sql"]
       /% Var.uuid "user_id")
 
+  let fetch_select_user_capabilities_for_update db user =
+    Pgsql_io.Prepared_stmt.fetch
+      db
+      (select_user_capabilities_for_update ())
+      ~f:(fun capabilities base_capabilities -> (capabilities, base_capabilities))
+      user
+
   let update_user_capabilities () =
     Pgsql_io.Typed_sql.(
       sql
@@ -116,8 +123,17 @@ module Sql = struct
       Ret.uuid
       /^ [%blob "./sql/update_user_capabilities.sql"]
       /% Var.json "capability_trie"
-      /% Var.(option (json "base_capability_trie"))
+      /% Var.json "base_capability_trie"
       /% Var.uuid "user_id")
+
+  let fetch_update_user_capabilities ~effective ~base db user =
+    Pgsql_io.Prepared_stmt.fetch
+      db
+      (update_user_capabilities ())
+      ~f:CCFun.id
+      (Sg_caps_json.to_json effective)
+      (Sg_caps_json.to_json base)
+      user
 
   let delete_user_login_sessions () =
     Pgsql_io.Typed_sql.(
@@ -279,32 +295,23 @@ let revoke_login_sessions ?except user db =
   Pgsql_io.Prepared_stmt.execute db (Sql.delete_user_login_sessions ()) user.id except
 
 (* The read-modify-write shared by {!grant_tenant} and {!revoke_tenant}. [f] is the pure edit.
-   Whether a tenant-scoped endpoint may ask
-   for the edit in the first place is a different question.
-
-   Only the effective capabilities are written; the baseline is left as it was, see
-   ./sql/update_user_capabilities.sql. *)
+   The updated effective capabilities (the one unioned with groups rules) is returned. *)
 let edit_tenant_capabilities ?except_login_session ~f ~tenant_id user db =
   let open Abbs_fc.Infix_result_monad in
-  Pgsql_io.Prepared_stmt.fetch
-    db
-    (Sql.select_user_capabilities_for_update ())
-    ~f:(fun capabilities _base_capabilities -> capabilities)
-    user.id
+  Sql.fetch_select_user_capabilities_for_update db user.id
   >>= function
   | [] -> Abbs_fc.return_err (`User_not_found_err user.id)
-  | capabilities :: _ -> (
-      let capabilities = f ~tenant:(Uuidm.to_string tenant_id) capabilities in
-      Pgsql_io.Prepared_stmt.fetch
+  | (capabilities, base_capabilities) :: _ -> (
+      let f = f ~tenant:(Uuidm.to_string tenant_id) in
+      let f_capabilities = f capabilities in
+      Sql.fetch_update_user_capabilities
+        ~effective:f_capabilities
+        ~base:(f base_capabilities)
         db
-        (Sql.update_user_capabilities ())
-        ~f:CCFun.id
-        (Sg_caps_json.to_json capabilities)
-        None
         user.id
       >>= function
       | _ :: _ ->
-          revoke_login_sessions ?except:except_login_session user db >>| fun () -> capabilities
+          revoke_login_sessions ?except:except_login_session user db >>| fun () -> f_capabilities
       | [] -> Abbs_fc.return_err (`User_not_found_err user.id))
 
 let edit_grants ~grants ~edit ~tenant caps =
@@ -398,11 +405,7 @@ let guard_last_instance_admin ~f db target_user_id =
    TODO Tamiya: should we avoid logging out the user when widening its capability? *)
 let write_instance_admin admin db target_user_id =
   let open Abbs_fc.Infix_result_monad in
-  Pgsql_io.Prepared_stmt.fetch
-    db
-    (Sql.select_user_capabilities_for_update ())
-    ~f:(fun capabilities base_capabilities -> (capabilities, base_capabilities))
-    target_user_id
+  Sql.fetch_select_user_capabilities_for_update db target_user_id
   >>= function
   | [] -> Abbs_fc.return_err `Not_found_user_err
   | (capabilities, base_capabilities) :: _ -> (
@@ -420,12 +423,10 @@ let write_instance_admin admin db target_user_id =
       match (set_admin_field capabilities, set_admin_field base_capabilities) with
       | `No_change, `No_change -> Abbs_fc.return_ok ()
       | ((`Change _ | `No_change) as capabilities'), ((`Change _ | `No_change) as base') ->
-          Pgsql_io.Prepared_stmt.fetch
+          Sql.fetch_update_user_capabilities
+            ~effective:(or_current capabilities capabilities')
+            ~base:(or_current base_capabilities base')
             db
-            (Sql.update_user_capabilities ())
-            ~f:CCFun.id
-            (Sg_caps_json.to_json (or_current capabilities capabilities'))
-            (Some (Sg_caps_json.to_json (or_current base_capabilities base')))
             target_user_id
           (* The returned id says the row was still there, which the lock above already
              guarantees. *)

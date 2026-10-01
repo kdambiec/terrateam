@@ -137,7 +137,7 @@ val revoke_login_sessions :
 
 (** [grant_tenant ~grants ~tenant_id user db] adds [tenant_id] to each of the user's named
     tenant-scoped capabilities, creating one scoped to that tenant alone when absent, and returns
-    the stored result.
+    the stored result (the effective one, i.e. the one unioned with the groups rules).
 
     The row is locked for the read-modify-write, so this must run inside a transaction — together
     with the matching {!Sgs_tenant.add_user}. Membership and capability are the two halves of one
@@ -164,7 +164,9 @@ val grant_tenant :
 
     There is deliberately no [except_login_session] escape hatch here, unlike {!grant_tenant}: the
     kept session would go on authorizing the right this call just took away. A caller revoking a
-    right from themselves is logged out so that the revokation is visibly immediate. *)
+    right from themselves is logged out so that the revokation is visibly immediate.
+
+    The effective (i.e. the one unioned with the group rules) updated capability is returned. *)
 val revoke_tenant :
   grants:tenant_grant list ->
   tenant_id:Uuidm.t ->
