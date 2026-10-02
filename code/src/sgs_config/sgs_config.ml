@@ -59,6 +59,7 @@ type t = {
   oauth2 : oauth2_config option;
   default_tenant_name : string option;
   cost_enabled : bool;
+  security_enabled : bool;
   dedicated_enabled : bool;
   (* STATEGRAPH_ORCHESTRATION_ENABLED: master on/off switch for the orchestration engine
      integration (FDW bridge to the terrateam database; the terrat runit service and nginx routes
@@ -363,6 +364,7 @@ let create ?(github_app_managed = false) () =
     | Some v -> CCOption.get_or ~default (CCInt.of_string v)
   in
   let cost_enabled = env_bool "STATEGRAPH_COST_ENABLED" in
+  let security_enabled = env_bool "STATEGRAPH_SECURITY" in
   let dedicated_enabled = env_bool "STATEGRAPH_DEDICATED_ENABLED" in
   let terrat_session_cookie_name =
     env_str_default "TERRAT_SESSION_COOKIE_NAME" ~default:"session"
@@ -460,6 +462,7 @@ let create ?(github_app_managed = false) () =
       oauth_redirect_base_explicit;
       port;
       cost_enabled;
+      security_enabled;
       dedicated_enabled;
       orchestration_enabled;
       orchestration_explicit;
@@ -517,6 +520,7 @@ let oauth2 t = t.oauth2
 let oauth2_api_key t = t.oauth2_api_key
 let port t = t.port
 let cost_enabled t = t.cost_enabled
+let security_enabled t = t.security_enabled
 let dedicated_enabled t = t.dedicated_enabled
 let orchestration_enabled t = t.orchestration_enabled
 let orchestration_explicit t = t.orchestration_explicit

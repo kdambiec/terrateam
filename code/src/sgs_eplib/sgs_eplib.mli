@@ -96,6 +96,16 @@ val respond_tenant_access_err :
 val log_tenant_access_denied :
   ('a, 'b) Brtl_ctx.t -> [< `User_not_in_tenant_err of Uuidm.t * Uuidm.t ] -> unit
 
+(** Answer, and log, the name a tenant may not be given: [400] [INVALID_TENANT_NAME] for blank or
+    over-long, [409] [TENANT_NAME_CONFLICT] for one another tenant already holds.
+
+    [tenant] is the tenant being renamed, for the log line; create has no id to name yet. *)
+val respond_tenant_name_err :
+  ?tenant:Uuidm.t ->
+  ('a, 'b) Brtl_ctx.t ->
+  [< `Name_conflict_err | `Name_invalid_err ] ->
+  ('a, Brtl_rspnc.t) Brtl_ctx.t
+
 (** The cursor a keyset-paged listing hands its client, opaque to that client, which only echoes it
     back. It carries the last row of the page as the [(timestamp, id)] pair the query orders and
     pages by.

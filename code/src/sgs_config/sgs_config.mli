@@ -61,6 +61,9 @@ val port : t -> int
 (** STATEGRAPH_COST_ENABLED: master on/off switch for cost estimation. *)
 val cost_enabled : t -> bool
 
+(** STATEGRAPH_SECURITY: master on/off switch for security scanning. *)
+val security_enabled : t -> bool
+
 (** STATEGRAPH_DEDICATED_ENABLED: master on/off switch for dedicated-Stategraph provisioning (the
     "Create Dedicated Stategraph" flow and the personal/dev-eval tenant labeling). Defaults to off.
 *)

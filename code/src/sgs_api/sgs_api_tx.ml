@@ -61,11 +61,17 @@ module Security_impact_summary = struct
     module Unauthorized = struct end
     module Not_found = struct end
 
+    module Service_unavailable = struct
+      type t = Sgs_api_components.Error_response.t
+      [@@deriving yojson { strict = false; meta = false }, show, eq]
+    end
+
     type t =
       [ `OK of OK.t
       | `Accepted of Accepted.t
       | `Unauthorized
       | `Not_found
+      | `Service_unavailable of Service_unavailable.t
       ]
     [@@deriving show, eq]
 
@@ -75,6 +81,7 @@ module Security_impact_summary = struct
         ("202", Openapi.of_json_body (fun v -> `Accepted v) Accepted.of_yojson);
         ("401", fun _ -> Ok `Unauthorized);
         ("404", fun _ -> Ok `Not_found);
+        ("503", Openapi.of_json_body (fun v -> `Service_unavailable v) Service_unavailable.of_yojson);
       ]
   end
 
@@ -112,11 +119,17 @@ module Security_impact = struct
     module Unauthorized = struct end
     module Not_found = struct end
 
+    module Service_unavailable = struct
+      type t = Sgs_api_components.Error_response.t
+      [@@deriving yojson { strict = false; meta = false }, show, eq]
+    end
+
     type t =
       [ `OK of OK.t
       | `Accepted of Accepted.t
       | `Unauthorized
       | `Not_found
+      | `Service_unavailable of Service_unavailable.t
       ]
     [@@deriving show, eq]
 
@@ -126,6 +139,7 @@ module Security_impact = struct
         ("202", Openapi.of_json_body (fun v -> `Accepted v) Accepted.of_yojson);
         ("401", fun _ -> Ok `Unauthorized);
         ("404", fun _ -> Ok `Not_found);
+        ("503", Openapi.of_json_body (fun v -> `Service_unavailable v) Service_unavailable.of_yojson);
       ]
   end
 
