@@ -816,11 +816,14 @@ module Make (P : Terrat_vcs_provider2_github.S) = struct
 
   let process_push_event request_id config storage exec event =
     let repository = event.Gw.Push_event.repository in
-    let default_branch = repository.Gw.Repository.default_branch in
     let ref_ = event.Gw.Push_event.ref_ in
-    let default_ref = "refs/heads/" ^ default_branch in
-    match event.Gw.Push_event.installation with
-    | Some installation_lite when CCString.equal ref_ default_ref ->
+    let branch =
+      match CCString.chop_prefix ~pre:"refs/heads/" ref_ with
+      | Some branch when not (CCString.equal branch "") -> Some branch
+      | _ -> None
+    in
+    match (event.Gw.Push_event.installation, branch) with
+    | Some installation_lite, Some branch ->
         Logs.info (fun m ->
             m
               "%s : PUSH_EVENT : owner=%s : repo=%s : sender=%s"
@@ -853,10 +856,10 @@ module Make (P : Terrat_vcs_provider2_github.S) = struct
               ~exec
               ~account
               ~repo
-              ~branch:(P.Api.Ref.of_string default_branch)
+              ~branch:(P.Api.Ref.of_string branch)
               ~user
               ())
-    | Some _ | None ->
+    | _ ->
         Logs.debug (fun m -> m "%s : PUSH_EVENT : NOOP" request_id);
         Abbs_fc.return_ok ()
 

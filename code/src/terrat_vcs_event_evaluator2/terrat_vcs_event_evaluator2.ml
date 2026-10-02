@@ -1079,7 +1079,6 @@ module Make (S : Terrat_vcs_provider2.S) = struct
             ~tasks:(Tasks_branch.tasks tasks)
             ()
           >>= fun s ->
-          let open Irm in
           (* For updating the branch hashes we set the branch name.  We make [s'] for this
              because [eval_push_event] doesn't need it and we don't want to put keys there that
              it might have its own plans for. *)
@@ -1090,8 +1089,12 @@ module Make (S : Terrat_vcs_provider2.S) = struct
             |> Keys.Key.add Keys.dest_branch_name branch
             |> CCFun.flip Builder.State.set_orig_store s
           in
+          (* Hash seeding is best effort.  Bind at the future level, not with
+             [Irm]: [log_err] logs the error and returns it, and [Irm.>>=]
+             short-circuits on [Error], which would abort the push. *)
+          let open Abb.Future.Infix_monad in
           log_err ~request_id @@ Builder.eval s' Keys.update_context_branch_hashes
-          >>= fun () ->
+          >>= fun _ ->
           let target = Keys.eval_push_event in
           Logs.info (fun m -> m "%s : target=%s" (Builder.log_id s) (Hmap.Key.info target));
           Pgsql_io.tx db ~f:(fun () -> tx_safe ~request_id @@ Builder.eval s target))

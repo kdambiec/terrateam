@@ -58,6 +58,15 @@ module Make (P : Terrat_vcs_provider2_gitlab.S) = struct
     | Some (owner, name) -> (owner, name)
     | None -> raise (Failure "nyi")
 
+  (* Parse the bare branch name from a push-event ref. Tag refs and other
+     non-branch refs parse to [None], as does the empty bare name — [""] is
+     the default-branch sentinel in drift-schedule rows and must never be
+     forwarded. *)
+  let branch_of_ref ref_ =
+    match CCString.chop_prefix ~pre:"refs/heads/" ref_ with
+    | Some branch when not (CCString.equal branch "") -> Some branch
+    | _ -> None
+
   let upsert_installation_repo _config storage installation_id =
     let module E = Gitlab_webhooks.Event in
     let module Pe = Gitlab_webhooks_push_event in
@@ -96,20 +105,24 @@ module Make (P : Terrat_vcs_provider2_gitlab.S) = struct
     let module Mr = Gitlab_webhooks_merge_request in
     function
     | E.Push_event
-        {
-          Pe.project = { Pr.id = repo_id; path_with_namespace; default_branch; _ };
-          ref_;
-          user_username;
-          _;
-        }
-      when ref_ = "refs/heads/" ^ default_branch ->
-        let owner, name = parse_path_with_namespace path_with_namespace in
-        let account = P.Api.Account.make installation_id in
-        let repo = P.Api.Repo.make ~id:repo_id ~name ~owner () in
-        let user = P.Api.User.make user_username in
-        let branch = P.Api.Ref.of_string default_branch in
-        Evaluator2.push ~request_id ~config ~storage ~exec ~account ~repo ~branch ~user ()
-    | E.Push_event _ -> Abbs_fc.return_ok ()
+        { Pe.project = { Pr.id = repo_id; path_with_namespace; _ }; ref_; user_username; _ } -> (
+        match branch_of_ref ref_ with
+        | Some branch ->
+            let owner, name = parse_path_with_namespace path_with_namespace in
+            let account = P.Api.Account.make installation_id in
+            let repo = P.Api.Repo.make ~id:repo_id ~name ~owner () in
+            let user = P.Api.User.make user_username in
+            Evaluator2.push
+              ~request_id
+              ~config
+              ~storage
+              ~exec
+              ~account
+              ~repo
+              ~branch:(P.Api.Ref.of_string branch)
+              ~user
+              ()
+        | None -> Abbs_fc.return_ok ())
     | E.Merge_request_comment_event
         { Mrce.object_attributes = { Mrceoa.note = Some comment_body; _ }; _ }
       when Terrat_comment.is_from_self comment_body ->
