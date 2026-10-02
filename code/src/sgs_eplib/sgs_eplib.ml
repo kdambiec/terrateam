@@ -80,6 +80,36 @@ let respond_tenant_access_err ctx = function
               ~data:"You are not a member of this tenant"))
         ctx
 
+(* The two write verbs of the tenant resource ([Sgs_tenant.create] and [Sgs_tenant.rename] share them)
+   refuse a name for the same two reasons.
+
+   [tenant] is the tenant being renamed: create has no id to name yet, rename does. *)
+let respond_tenant_name_err ?tenant ctx err =
+  let of_ =
+    CCOption.map_or
+      ~default:""
+      (fun id -> Printf.sprintf " : tenant=%s" (Uuidm.to_string id))
+      tenant
+  in
+  match err with
+  | `Name_invalid_err ->
+      Logs.warn (fun m -> m "%s : INVALID_TENANT_NAME%s" (Brtl_ctx.token ctx) of_);
+      respond_error
+        ~status:`Bad_request
+        ~id:"INVALID_TENANT_NAME"
+        ~data:
+          (Printf.sprintf
+             "A tenant name must not be blank and must be at most %d characters"
+             Sgs_tenant.max_name_length)
+        ctx
+  | `Name_conflict_err ->
+      Logs.warn (fun m -> m "%s : TENANT_NAME_CONFLICT%s" (Brtl_ctx.token ctx) of_);
+      respond_error
+        ~status:`Conflict
+        ~id:"TENANT_NAME_CONFLICT"
+        ~data:"Another tenant already uses that name"
+        ctx
+
 (* The page cursor every keyset-paged listing hands out.  See the interface for what it carries and
    why both halves are needed. *)
 module Cursor = struct

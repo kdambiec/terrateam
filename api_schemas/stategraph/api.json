@@ -2569,7 +2569,7 @@
       },
       "security-availability": {
         "additionalProperties": false,
-        "description": "Whether the server can run security scans (a checkov binary is configured and the feature is not explicitly disabled). Modelled as an object so security-related metadata can be added later without breaking the capabilities contract.",
+        "description": "Whether the server runs security scans: STATEGRAPH_SECURITY is \"true\" or \"1\". Modelled as an object so security-related metadata can be added later without breaking the capabilities contract.",
         "properties": {
           "enabled": {
             "type": "boolean"
@@ -8096,7 +8096,7 @@
     },
     "/api/v1/states/{state_id}/security/findings": {
       "get": {
-        "description": "Return the latest current scan for a state and its findings. Paginated via Link header (RFC 5988): follow `rel=\"next\"` for additional pages. 200 with an empty findings list when the state has never been scanned (security endpoints degrade cleanly; never 404 for missing data). 503 when security is disabled via STATEGRAPH_SECURITY=\"0\" (or \"false\").",
+        "description": "Return the latest current scan for a state and its findings. Paginated via Link header (RFC 5988): follow `rel=\"next\"` for additional pages. 200 with an empty findings list when the state has never been scanned (security endpoints degrade cleanly; never 404 for missing data). 503 when security is disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\").",
         "operationId": "states/security/findings",
         "parameters": [
           {
@@ -8172,7 +8172,7 @@
                 }
               }
             },
-            "description": "Security disabled (STATEGRAPH_SECURITY=\"0\" or \"false\")."
+            "description": "Security disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\")."
           }
         }
       }
@@ -8220,14 +8220,14 @@
                 }
               }
             },
-            "description": "Security disabled (STATEGRAPH_SECURITY=\"0\" or \"false\")."
+            "description": "Security disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\")."
           }
         }
       }
     },
     "/api/v1/states/{state_id}/security/scan": {
       "post": {
-        "description": "Trigger a fresh current security scan for a state. Returns 202 with a task id immediately; the scan runs in the background and writes a new security_scans row when done. Poll /api/v1/tasks/{id} for progress. 503 when security is disabled via STATEGRAPH_SECURITY=\"0\" (or \"false\").",
+        "description": "Trigger a fresh current security scan for a state. Returns 202 with a task id immediately; the scan runs in the background and writes a new security_scans row when done. Poll /api/v1/tasks/{id} for progress. 503 when security is disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\").",
         "operationId": "states/security/scan",
         "parameters": [
           {
@@ -8284,7 +8284,7 @@
     },
     "/api/v1/states/{state_id}/security/scans": {
       "get": {
-        "description": "Scan history for a state, newest-first. Paginated via Link header (RFC 5988): follow `rel=\"next\"` for older scans. 503 when security is disabled via STATEGRAPH_SECURITY=\"0\" (or \"false\").",
+        "description": "Scan history for a state, newest-first. Paginated via Link header (RFC 5988): follow `rel=\"next\"` for older scans. 503 when security is disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\").",
         "operationId": "states/security/scans",
         "parameters": [
           {
@@ -8352,7 +8352,7 @@
                 }
               }
             },
-            "description": "Security disabled (STATEGRAPH_SECURITY=\"0\" or \"false\")."
+            "description": "Security disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\")."
           }
         }
       }
@@ -10161,7 +10161,7 @@
                 }
               }
             },
-            "description": "Security disabled (STATEGRAPH_SECURITY=\"0\" or \"false\")."
+            "description": "Security disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\")."
           }
         }
       }
@@ -11510,7 +11510,7 @@
     },
     "/api/v1/tx/{tx_id}/security/impact": {
       "get": {
-        "description": "Per-transaction security impact: the added/resolved finding lists the planned change introduces vs each affected state's latest current scan. 200 with a tx-security-impact once the planned scan has run and the impact is written; 202 with tx-security-impact-status (status=\"computing\") while the eager preview scan is still running; 404 once the tx is aborted (the abort endpoint deletes the planned scans) or the tx is unknown; 401 when the caller is not a member of the tx's tenant (combined with not-found to avoid leakage). The severity rollup is at .../impact/summary.",
+        "description": "Per-transaction security impact: the added/resolved finding lists the planned change introduces vs each affected state's latest current scan. 200 with a tx-security-impact once the planned scan has run and the impact is written; 202 with tx-security-impact-status (status=\"computing\") while the eager preview scan is still running; 404 once the tx is aborted (the abort endpoint deletes the planned scans) or the tx is unknown; 401 when the caller is not a member of the tx's tenant (combined with not-found to avoid leakage). 503 when security is disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\"). The severity rollup is at .../impact/summary.",
         "operationId": "tx/security/impact",
         "parameters": [
           {
@@ -11543,13 +11543,23 @@
             "description": "The security-impact computation is still in flight."
           },
           "401": {},
-          "404": {}
+          "404": {},
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            },
+            "description": "Security disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\")."
+          }
         }
       }
     },
     "/api/v1/tx/{tx_id}/security/impact/summary": {
       "get": {
-        "description": "Per-transaction security impact rollup (added/resolved finding counts by severity). 200 with a tx-security-impact-summary once the impact is written; 202 with tx-security-impact-status (status=\"computing\") while the eager preview scan is still running; 404 once the tx is aborted or unknown; 401 when the caller is not a member of the tx's tenant.",
+        "description": "Per-transaction security impact rollup (added/resolved finding counts by severity). 200 with a tx-security-impact-summary once the impact is written; 202 with tx-security-impact-status (status=\"computing\") while the eager preview scan is still running; 404 once the tx is aborted or unknown; 401 when the caller is not a member of the tx's tenant. 503 when security is disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\").",
         "operationId": "tx/security/impact/summary",
         "parameters": [
           {
@@ -11582,7 +11592,17 @@
             "description": "The security-impact computation is still in flight."
           },
           "401": {},
-          "404": {}
+          "404": {},
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/error-response"
+                }
+              }
+            },
+            "description": "Security disabled (STATEGRAPH_SECURITY is not \"true\" or \"1\")."
+          }
         }
       }
     },
