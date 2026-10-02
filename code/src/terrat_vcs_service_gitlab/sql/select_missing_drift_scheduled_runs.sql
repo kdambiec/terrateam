@@ -78,6 +78,7 @@ drift_schedule_windows as (
     select
         repository,
         name,
+        coalesce(branch, '') as branch,
         window_start,
         window_end
     from ds
@@ -99,12 +100,14 @@ chosen_drift_schedule as (
     from ds
     inner join drift_schedules
         on drift_schedules.repo = ds.repo_core_id and drift_schedules.name = ds.name
+        and drift_schedules.branch = coalesce(ds.branch, '')
     inner join gitlab_installation_repositories as gir
         on gir.id = ds.repository
     inner join gitlab_installations as gi
         on gi.id = gir.installation_id
     left join drift_schedule_windows as dsw
         on (dsw.repository, dsw.name) = (ds.repository, ds.name)
+        and dsw.branch = coalesce(ds.branch, '')
     where (dsw.window_start is null
            or (dsw.window_start <= dsw.window_end
                and dsw.window_start <= current_timestamp
@@ -138,5 +141,6 @@ select
     reconcile,
     tag_query,
     window_start,
-    window_end
+    window_end,
+    branch
 from updated_last_tried

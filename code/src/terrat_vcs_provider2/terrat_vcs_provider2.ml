@@ -659,11 +659,25 @@ module type S = sig
       Terrat_api_components_work_manifest_tf_operation_result2.t ->
       (unit, [> `Error ]) result Abb.Future.t
 
+    (** Store the drift schedules of [repo] for [branch]. Never upsert the [Api.Ref.of_string ""]
+        sentinel; pass the real branch name, the default branch included. The sentinel is only a
+        legacy delete key. *)
     val store_drift_schedule :
       request_id:string ->
       t ->
       Api.Repo.t ->
+      branch:Api.Ref.t ->
       Terrat_base_repo_config_v1.Drift.t ->
+      (unit, [> `Error ]) result Abb.Future.t
+
+    (** Migrate the legacy [(repo, '', name)] row to [(repo, branch, name)] and delete the sentinel.
+        Idempotent: an existing target row is left untouched. *)
+    val migrate_default_branch_drift_schedule :
+      request_id:string ->
+      t ->
+      Api.Repo.t ->
+      branch:Api.Ref.t ->
+      name:string ->
       (unit, [> `Error ]) result Abb.Future.t
 
     val query_account_status :
@@ -956,7 +970,13 @@ module type S = sig
     val query_missing_drift_scheduled_runs :
       request_id:string ->
       t ->
-      ( (string * Api.Account.t * Api.Repo.t * bool * Terrat_tag_query.t * (string * string) option)
+      ( (string
+        * Api.Account.t
+        * Api.Repo.t
+        * bool
+        * Terrat_tag_query.t
+        * (string * string) option
+        * string option)
         list,
         [> `Error ] )
       result

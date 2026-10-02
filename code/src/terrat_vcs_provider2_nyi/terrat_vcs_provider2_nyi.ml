@@ -34,7 +34,11 @@ module Db = struct
 
   let store_tf_operation_result ~request_id db work_manifest_id result = raise (Failure "nyi")
   let store_tf_operation_result2 ~request_id db work_manifest_id result = raise (Failure "nyi")
-  let store_drift_schedule ~request_id db repo drift = raise (Failure "nyi")
+  let store_drift_schedule ~request_id db repo ~branch drift = raise (Failure "nyi")
+
+  let migrate_default_branch_drift_schedule ~request_id db repo ~branch ~name =
+    raise (Failure "nyi")
+
   let query_account_status ~request_id db account = raise (Failure "nyi")
   let query_index ~request_id db account ref_ = raise (Failure "nyi")
   let query_repo_config_json ~request_id db account ref_ = raise (Failure "nyi")

@@ -6,6 +6,75 @@ module Msg = Terrat_vcs_provider2.Msg
 module Work_set = Terrat_vcs_event_evaluator2_work_set
 module Merge_steps = Terrat_vcs_event_evaluator2_merge_steps
 
+(* Destination-branch match helpers, shared by the pull-request scope task
+   [check_valid_destination_branch] and the push-scope registration in
+   [eval_push_event].  Both are pure, so they live outside [Make]. *)
+module Ds = Terrat_base_repo_config_v1.Destination_branches.Destination_branch
+
+(* Turn a glob into lua pattern for checking.  We escape all lua pattern
+   special characters "().%+-?[^$", turn * into ".*", and wrap the whole thing
+   in ^ and $ to make it a complete string match. *)
+let pattern_of_glob s =
+  let len = CCString.length s in
+  let b = Buffer.create len in
+  Buffer.add_char b '^';
+  for i = 0 to len - 1 do
+    match CCString.get s i with
+    | '*' -> Buffer.add_string b ".*"
+    | ('(' | ')' | '.' | '%' | '+' | '-' | '?' | '[' | '^' | '$') as c ->
+        Buffer.add_char b '%';
+        Buffer.add_char b c
+    | c -> Buffer.add_char b c
+  done;
+  Buffer.add_char b '$';
+  let pattern = Buffer.contents b in
+  CCOption.get_exn_or ("pattern_glob " ^ s ^ " " ^ pattern) (Lua_pattern.of_string pattern)
+
+let rec eval_destination_branch_match dest_branch source_branch = function
+  | [] -> Error `No_matching_dest_branch
+  | { Ds.branch; source_branches } :: valid_branches -> (
+      let branch_glob = pattern_of_glob (CCString.lowercase_ascii branch) in
+      match Lua_pattern.find dest_branch branch_glob with
+      | Some _ ->
+          (* Partition the source branches into the not patterns and the
+             positive patterns. *)
+          let not_branches, branches =
+            CCList.partition (CCString.prefix ~pre:"!") source_branches
+          in
+          (* Remove the exclamation point from the beginning as it's not
+             actually part of the pattern. *)
+          let not_branch_globs =
+            CCList.map
+              CCFun.(CCString.drop 1 %> CCString.lowercase_ascii %> pattern_of_glob)
+              not_branches
+          in
+          let branch_globs =
+            let branches =
+              (* If there are not-branch globs, but branch globs is empty, that
+                 implicitly means match anything on the positive branch.  If
+                 not-branches are empty then take what is in branches, which
+                 could be nothing. *)
+              match (not_branch_globs, branches) with
+              | _ :: _, [] -> [ "*" ]
+              | _, branches -> branches
+            in
+            CCList.map CCFun.(CCString.lowercase_ascii %> pattern_of_glob) branches
+          in
+          (* The not patterns are an "and", as in success for the not patterns is
+             that all of them do not match.
+
+             The positive matches, however, are if any of them match. *)
+          if
+            CCList.for_all
+              CCFun.(Lua_pattern.find source_branch %> CCOption.is_none)
+              not_branch_globs
+            && CCList.exists CCFun.(Lua_pattern.find source_branch %> CCOption.is_some) branch_globs
+          then Ok ()
+          else Error `No_matching_source_branch
+      | None ->
+          (* If the dest branch doesn't match this branch, then try the next *)
+          eval_destination_branch_match dest_branch source_branch valid_branches)
+
 module Make
     (S : Terrat_vcs_provider2.S)
     (Keys : module type of Terrat_vcs_event_evaluator2_targets.Make (S)) =
@@ -2153,76 +2222,6 @@ struct
 
     let check_valid_destination_branch =
       run ~name:"check_valid_destination_branch" (fun s { Bs.Fetcher.fetch } ->
-          (* Turn a glob into lua pattern for checking.  We escape all lua pattern
-             special characters "().%+-?[^$", turn * into ".*", and wrap the whole thing
-             in ^ and $ to make it a complete string match. *)
-          let pattern_of_glob s =
-            let len = CCString.length s in
-            let b = Buffer.create len in
-            Buffer.add_char b '^';
-            for i = 0 to len - 1 do
-              match CCString.get s i with
-              | '*' -> Buffer.add_string b ".*"
-              | ('(' | ')' | '.' | '%' | '+' | '-' | '?' | '[' | '^' | '$') as c ->
-                  Buffer.add_char b '%';
-                  Buffer.add_char b c
-              | c -> Buffer.add_char b c
-            done;
-            Buffer.add_char b '$';
-            let pattern = Buffer.contents b in
-            CCOption.get_exn_or
-              ("pattern_glob " ^ s ^ " " ^ pattern)
-              (Lua_pattern.of_string pattern)
-          in
-          let rec eval_destination_branch_match dest_branch source_branch =
-            let module Ds = Terrat_base_repo_config_v1.Destination_branches.Destination_branch in
-            function
-            | [] -> Error `No_matching_dest_branch
-            | { Ds.branch; source_branches } :: valid_branches -> (
-                let branch_glob = pattern_of_glob (CCString.lowercase_ascii branch) in
-                match Lua_pattern.find dest_branch branch_glob with
-                | Some _ ->
-                    (* Partition the source branches into the not patterns and the
-                   positive patterns. *)
-                    let not_branches, branches =
-                      CCList.partition (CCString.prefix ~pre:"!") source_branches
-                    in
-                    (* Remove the exclamation point from the beginning as it's not
-                   actually part of the pattern. *)
-                    let not_branch_globs =
-                      CCList.map
-                        CCFun.(CCString.drop 1 %> CCString.lowercase_ascii %> pattern_of_glob)
-                        not_branches
-                    in
-                    let branch_globs =
-                      let branches =
-                        (* If there are not-branch globs, but branch globs is empty,
-                       that implicitly means match anything on the positive branch.
-                       If not-branches are empty then take what is in branches,
-                       which could be nothing. *)
-                        match (not_branch_globs, branches) with
-                        | _ :: _, [] -> [ "*" ]
-                        | _, branches -> branches
-                      in
-                      CCList.map CCFun.(CCString.lowercase_ascii %> pattern_of_glob) branches
-                    in
-                    (* The not patterns are an "and", as in success for the not patterns
-                   is that all of them do not match.
-
-                   The positive matches, however, are if any of them match. *)
-                    if
-                      CCList.for_all
-                        CCFun.(Lua_pattern.find source_branch %> CCOption.is_none)
-                        not_branch_globs
-                      && CCList.exists
-                           CCFun.(Lua_pattern.find source_branch %> CCOption.is_some)
-                           branch_globs
-                    then Ok ()
-                    else Error `No_matching_source_branch
-                | None ->
-                    (* If the dest branch doesn't match this branch, then try the next *)
-                    eval_destination_branch_match dest_branch source_branch valid_branches)
-          in
           let module Rc = Terrat_base_repo_config_v1 in
           let module Ds = Rc.Destination_branches.Destination_branch in
           let open Irm in
@@ -3218,67 +3217,173 @@ struct
               >>= fun () -> dispatch_fail_event s work_manifest run_id)
 
     let eval_push_event =
+      let module V1 = Terrat_base_repo_config_v1 in
+      let module D = Terrat_base_repo_config_v1.Drift in
+      let fetch_remote_repo s client repo =
+        time_it
+          s
+          (fun m log_id time ->
+            m "%s : FETCH_REMOTE_REPO : repo = %s : time=%f" log_id (S.Api.Repo.to_string repo) time)
+          (fun () -> S.Api.fetch_remote_repo ~request_id:(Builder.log_id s) client repo)
+      in
+      let fetch_branch_sha s client repo branch_name =
+        time_it
+          s
+          (fun m log_id time ->
+            m
+              "%s : FETCH_REMOTE_SHA : repo = %s : branch = %s : time=%f"
+              log_id
+              (S.Api.Repo.to_string repo)
+              (S.Api.Ref.to_string branch_name)
+              time)
+          (fun () -> S.Api.fetch_branch_sha ~request_id:(Builder.log_id s) client repo branch_name)
+      in
+      let log_drift_schedule_updates s repo drift =
+        let { D.enabled; schedules } = drift in
+        CCList.iter
+          (fun (name, { D.Schedule.tag_query; reconcile; schedule; window }) ->
+            Logs.info (fun m ->
+                m
+                  "%s : DRIFT : UPDATE_SCHEDULE : name=%s : enabled=%B : repo=%s : schedule=%s : \
+                   reconcile=%s : tag_query=%s : window=%s"
+                  (Builder.log_id s)
+                  name
+                  enabled
+                  (S.Api.Repo.to_string repo)
+                  (D.Schedule.Sched.to_string schedule)
+                  (Bool.to_string reconcile)
+                  (Terrat_tag_query.to_string tag_query)
+                  (CCOption.map_or
+                     ~default:""
+                     (fun { D.Window.start; end_ } -> start ^ "-" ^ end_)
+                     window)))
+          (Sln_map.String.to_list schedules)
+      in
+      let store_drift_schedule s repo branch drift =
+        Builder.run_db s ~f:(fun db ->
+            time_it
+              s
+              (fun m log_id time ->
+                m
+                  "%s : STORE_DRIFT_SCHEDULE : repo = %s : time=%f"
+                  log_id
+                  (S.Api.Repo.to_string repo)
+                  time)
+              (fun () ->
+                S.Db.store_drift_schedule ~request_id:(Builder.log_id s) db repo ~branch drift))
+      in
+      let store_disabled_drift_schedule s repo branch =
+        store_drift_schedule
+          s
+          repo
+          branch
+          Terrat_base_repo_config_v1.{ Drift.enabled = false; schedules = Sln_map.String.empty }
+      in
+      let arm_default_branch_drift s repo branch drift =
+        let open Irm in
+        ignore @@ log_drift_schedule_updates s repo drift;
+        store_drift_schedule s repo branch drift
+        >>= fun () ->
+        (* The rows just armed are keyed on the real branch name, and this push's
+           delete is branch-keyed too: a legacy '' row would survive and twin
+           them, so drop it while the explicit rows are armed. The delete runs
+           only if the arm succeeded — Irm short-circuits — so a failed arm
+           leaves the legacy row as the schedule of record. *)
+        store_disabled_drift_schedule s repo (S.Api.Ref.of_string "")
+      in
+      let eval_push_dead_branch s repo branch_name =
+        Logs.info (fun m ->
+            m
+              "%s : DRIFT : DEAD_BRANCH : branch=%s"
+              (Builder.log_id s)
+              (S.Api.Ref.to_string branch_name));
+        store_disabled_drift_schedule s repo branch_name
+      in
+      let eval_push_destination_gate s repo branch_name repo_config default_branch =
+        let drift = V1.drift repo_config in
+        let valid_branches =
+          match V1.destination_branches repo_config with
+          | [] -> [ Ds.make ~branch:(S.Api.Ref.to_string default_branch) () ]
+          | ds -> ds
+        in
+        let pushed = CCString.lowercase_ascii (S.Api.Ref.to_string branch_name) in
+        match eval_destination_branch_match pushed pushed valid_branches with
+        | Ok () ->
+            let () = log_drift_schedule_updates s repo drift in
+            store_drift_schedule s repo branch_name drift
+        | Error (`No_matching_dest_branch | `No_matching_source_branch) ->
+            Logs.info (fun m ->
+                m
+                  "%s : DRIFT : NOT_IN_DESTINATION_BRANCHES : branch=%s"
+                  (Builder.log_id s)
+                  (S.Api.Ref.to_string branch_name));
+            store_disabled_drift_schedule s repo branch_name
+      in
       run ~name:"eval_push_event" (fun s { Bs.Fetcher.fetch } ->
-          let module V1 = Terrat_base_repo_config_v1 in
-          let module D = Terrat_base_repo_config_v1.Drift in
           let open Irm in
           let run =
             fetch Keys.client
             >>= fun client ->
             fetch Keys.repo
             >>= fun repo ->
-            time_it
-              s
-              (fun m log_id time ->
-                m
-                  "%s : FETCH_REMOTE_REPO : repo = %s : time=%f"
-                  log_id
-                  (S.Api.Repo.to_string repo)
-                  time)
-              (fun () -> S.Api.fetch_remote_repo ~request_id:(Builder.log_id s) client repo)
+            fetch_remote_repo s client repo
             >>= fun remote_repo ->
             let default_branch = S.Api.Remote_repo.default_branch remote_repo in
             fetch Keys.branch_name
-            >>= fun branch_name ->
-            if CCString.equal (S.Api.Ref.to_string branch_name) (S.Api.Ref.to_string default_branch)
-            then (
-              fetch Keys.repo_config
-              >>= fun repo_config ->
-              let ({ D.enabled; schedules } as drift) = V1.drift repo_config in
-              CCList.iter
-                (fun (name, { D.Schedule.tag_query; reconcile; schedule; window }) ->
-                  Logs.info (fun m ->
-                      m
-                        "%s : DRIFT : UPDATE_SCHEDULE : name=%s : enabled=%B : repo=%s : \
-                         schedule=%s : reconcile=%s : tag_query=%s : window=%s"
-                        (Builder.log_id s)
-                        name
-                        enabled
-                        (S.Api.Repo.to_string repo)
-                        (D.Schedule.Sched.to_string schedule)
-                        (Bool.to_string reconcile)
-                        (Terrat_tag_query.to_string tag_query)
-                        (CCOption.map_or
-                           ~default:""
-                           (fun { D.Window.start; end_ } -> start ^ "-" ^ end_)
-                           window)))
-                (Sln_map.String.to_list schedules);
-              Builder.run_db s ~f:(fun db ->
-                  time_it
-                    s
-                    (fun m log_id time ->
-                      m
-                        "%s : STORE_DRIFT_SCHEDULE : repo = %s : time=%f"
-                        log_id
-                        (S.Api.Repo.to_string repo)
-                        time)
-                    (fun () ->
-                      S.Db.store_drift_schedule ~request_id:(Builder.log_id s) db repo drift)))
-            else Abbs_fc.return_ok ()
+            >>= function
+            | branch_name when S.Api.Ref.equal branch_name default_branch ->
+                fetch Keys.repo_config
+                >>= fun repo_config ->
+                arm_default_branch_drift s repo default_branch (V1.drift repo_config)
+            | branch_name -> (
+                (* Gate 2 for a non-default branch.  The config chain resolves the
+                   pushed branch's sha and raises [`Branch_not_found_err] for a
+                   branch that is gone, so the dead-branch probe runs first and
+                   turns a missing branch into a prune instead of an error.  The
+                   probe is uncached: a branch deleted moments ago must be seen as
+                   dead, not answered from the cache. *)
+                fetch_branch_sha s client repo branch_name
+                >>= function
+                | None -> eval_push_dead_branch s repo branch_name
+                | Some _ ->
+                    fetch Keys.repo_config
+                    >>= fun repo_config ->
+                    eval_push_destination_gate s repo branch_name repo_config default_branch)
           in
           fetch Keys.job >>= fun job -> H.complete_job s job @@ run)
 
     let run_missing_drift_schedules =
+      let migrate_legacy_branch_schedule s repo ~branch ~branch_ref name =
+        (* A [None] branch is a legacy row whose stored value is the ''
+           sentinel. The default branch's name is only knowable here, so
+           this is the earliest read point that can convert the row:
+           copy it to the explicit name and delete the sentinel row.
+           Unconverted, the row would twin the explicit row a push
+           wrote, and both would fire, because the scheduler picks one
+           candidate per physical row. A failure is logged and the run
+           continues on the legacy row; the next tick retries. *)
+        if CCOption.is_none branch then (
+          let open Abb.Future.Infix_monad in
+          Builder.run_db s ~f:(fun db ->
+              S.Db.migrate_default_branch_drift_schedule
+                ~request_id:(Builder.log_id s)
+                db
+                repo
+                ~branch:branch_ref
+                ~name)
+          >>= function
+          | Ok () -> Abbs_fc.return_ok ()
+          | Error (#Builder.err as err) ->
+              Logs.err (fun m ->
+                  m
+                    "%s : DRIFT : LEGACY_BRANCH_MIGRATE : repo = %s : %a"
+                    (Builder.log_id s)
+                    (S.Api.Repo.to_string repo)
+                    Builder.pp_err
+                    err);
+              Abbs_fc.return_ok ())
+        else Abbs_fc.return_ok ()
+      in
       run ~name:"run_missing_drift_schedules" (fun s { Bs.Fetcher.fetch = _ } ->
           let open Irm in
           Builder.run_db s ~f:(fun db ->
@@ -3296,13 +3401,13 @@ struct
                 (Builder.log_id s)
                 (CCList.length schedules));
           Abbs_fc.List.iter
-            ~f:(fun (name, account, repo, reconcile, tag_query, window) ->
+            ~f:(fun (name, account, repo, reconcile, tag_query, window, branch) ->
               let run =
                 let open Irm in
                 Logs.info (fun m ->
                     m
                       "%s : DRIFT : RUN : name=%s : account=%s : repo=%s : reconcile=%s : \
-                       tag_query=%s : window=%s"
+                       tag_query=%s : window=%s : branch=%s"
                       (Builder.log_id s)
                       name
                       (S.Api.Account.to_string account)
@@ -3313,7 +3418,8 @@ struct
                          ~default:""
                          (fun (window_start, window_end) ->
                            Printf.sprintf "%s-%s" window_start window_end)
-                         window));
+                         window)
+                      (CCOption.get_or ~default:"default" branch));
                 Builder.run_db s ~f:(fun db ->
                     S.Api.create_client
                       ~request_id:(Builder.log_id s)
@@ -3341,14 +3447,19 @@ struct
                     Abbs_fc.return_ok ()
                 | Ok remote_repo -> (
                     let open Irm in
-                    let default_branch = S.Api.Remote_repo.default_branch remote_repo in
+                    let branch_ref =
+                      CCOption.map S.Api.Ref.of_string branch
+                      |> CCOption.get_or ~default:(S.Api.Remote_repo.default_branch remote_repo)
+                    in
+                    migrate_legacy_branch_schedule s repo ~branch ~branch_ref name
+                    >>= fun () ->
                     Builder.run_db s ~f:(fun db ->
                         S.Job_context.create_or_get_for_branch
                           ~request_id:(Builder.log_id s)
                           db
                           account
                           repo
-                          default_branch)
+                          branch_ref)
                     >>= fun context ->
                     Builder.run_db s ~f:(fun db ->
                         time_it
@@ -3391,6 +3502,39 @@ struct
                       |> Builder.State.set_tasks (Tasks_branch.tasks (Builder.State.tasks s))
                     in
                     let open Abb.Future.Infix_monad in
+                    (* Seed the store with the schedule's resolved branch so
+                       the apply checks see the branch_commit_hashes rows that
+                       a push entry would have written.  The result is logged
+                       and discarded: a seeding failure must not reach the
+                       disable arms, which would delete the schedule rows when
+                       the VCS merely failed to resolve a branch. *)
+                    let s_seed =
+                      s'
+                      |> Builder.State.orig_store
+                      |> Keys.Key.add Keys.branch_name branch_ref
+                      |> Keys.Key.add Keys.dest_branch_name branch_ref
+                      |> CCFun.flip Builder.State.set_orig_store s'
+                    in
+                    Builder.eval s_seed Keys.update_context_branch_hashes
+                    >>= (function
+                    | Ok () -> Abb.Future.return ()
+                    | Error (`Noop | `Suspend_eval _ | `Rerun _) ->
+                        Logs.info (fun m ->
+                            m
+                              "%s : SEED_BRANCH_HASH : branch = %s : noop"
+                              (Builder.log_id s')
+                              (S.Api.Ref.to_string branch_ref));
+                        Abb.Future.return ()
+                    | Error (#Builder.err as err) ->
+                        Logs.err (fun m ->
+                            m
+                              "%s : SEED_BRANCH_HASH : branch = %s : %a"
+                              (Builder.log_id s')
+                              (S.Api.Ref.to_string branch_ref)
+                              Builder.pp_err
+                              err);
+                        Abb.Future.return ())
+                    >>= fun () ->
                     Builder.eval s' Keys.iter_job
                     >>= function
                     (* [`Rerun] is not a failure.  The arm below turns the
@@ -3410,6 +3554,7 @@ struct
                         Builder.run_db s ~f:(fun db ->
                             S.Db.store_drift_schedule
                               ~request_id:(Builder.log_id s)
+                              ~branch:branch_ref
                               db
                               repo
                               Terrat_base_repo_config_v1.
@@ -3446,9 +3591,15 @@ struct
                           (Builder.log_id s)
                           (S.Api.Account.to_string account)
                           (S.Api.Repo.to_string repo));
+                    (* No [remote_repo] in scope, so the default branch's real
+                       name is unknowable. A legacy row is reachable only by its
+                       '' key; an explicit row by its own name. Nothing is stored
+                       here — both are delete keys, permitted by the store
+                       contract. *)
                     Builder.run_db s ~f:(fun db ->
                         S.Db.store_drift_schedule
                           ~request_id:(Builder.log_id s)
+                          ~branch:(S.Api.Ref.of_string (CCOption.get_or ~default:"" branch))
                           db
                           repo
                           Terrat_base_repo_config_v1.

@@ -405,14 +405,24 @@ module Db = struct
         /% Var.(option (ud (text "tag_query") Terrat_tag_query.to_string))
         /% Var.text "name"
         /% Var.(option (timetz "window_start"))
-        /% Var.(option (timetz "window_end")))
+        /% Var.(option (timetz "window_end"))
+        /% Var.text "branch")
 
     let delete_drift_schedules =
       Pgsql_io.Typed_sql.(
         sql
         /^ read [%blob "sql/delete_drift_schedules.sql"]
         /% Var.bigint "repo_id"
-        /% Var.(str_array (text "names")))
+        /% Var.(str_array (text "names"))
+        /% Var.text "branch")
+
+    let migrate_default_branch_drift_schedule =
+      Pgsql_io.Typed_sql.(
+        sql
+        /^ read [%blob "sql/migrate_default_branch_drift_schedule.sql"]
+        /% Var.bigint "repo"
+        /% Var.text "name"
+        /% Var.text "branch")
 
     let select_installation_account_status_query = read [%blob "sql/select_account_status.sql"]
 
@@ -904,6 +914,9 @@ module Db = struct
         Ret.(option text)
         //
         (* window_end *)
+        Ret.(option text)
+        //
+        (* branch *)
         Ret.(option text)
         /^ select_missing_drift_scheduled_runs_query)
 
@@ -1775,9 +1788,10 @@ module Db = struct
         Abbs_fc.return_err `Error
     | Error `Error -> Abbs_fc.return_err `Error
 
-  let store_drift_schedule ~request_id db repo drift =
+  let store_drift_schedule ~request_id db repo ~branch drift =
     let module D = Terrat_base_repo_config_v1.Drift in
     let { D.enabled; schedules; _ } = drift in
+    let branch = Api.Ref.to_string branch in
     let open Abb.Future.Infix_monad in
     (if enabled then
        Metrics.Psql_query_time.time (Metrics.psql_query_time "upsert_drift_schedule") (fun () ->
@@ -1788,6 +1802,7 @@ module Db = struct
              Sql.delete_drift_schedules
              (CCInt64.of_int @@ Api.Repo.id repo)
              names
+             branch
            >>= fun () ->
            Abbs_fc.List_result.iter
              ~f:(fun (name, { D.Schedule.reconcile; schedule; tag_query; window }) ->
@@ -1806,19 +1821,39 @@ module Db = struct
                  (Some tag_query)
                  name
                  window_start
-                 window_end)
+                 window_end
+                 branch)
              (Sln_map.String.to_list schedules))
      else
        Pgsql_io.Prepared_stmt.execute
          db
          Sql.delete_drift_schedules
          (CCInt64.of_int @@ Api.Repo.id repo)
-         [])
+         []
+         branch)
     >>= function
     | Ok () -> Abbs_fc.return_ok ()
     | Error (#Pgsql_io.err as err) ->
         Prmths.Counter.inc_one Metrics.pgsql_errors_total;
         Logs.err (fun m -> m "%s : ERROR : %a" request_id Pgsql_io.pp_err err);
+        Abbs_fc.return_err `Error
+
+  let migrate_default_branch_drift_schedule ~request_id db repo ~branch ~name =
+    let open Abb.Future.Infix_monad in
+    Metrics.Psql_query_time.time
+      (Metrics.psql_query_time "migrate_default_branch_drift_schedule")
+      (fun () ->
+        Pgsql_io.Prepared_stmt.execute
+          db
+          Sql.migrate_default_branch_drift_schedule
+          (CCInt64.of_int @@ Api.Repo.id repo)
+          name
+          (Api.Ref.to_string branch))
+    >>= function
+    | Ok () -> Abbs_fc.return_ok ()
+    | Error (#Pgsql_io.err as err) ->
+        Prmths.Counter.inc_one Metrics.pgsql_errors_total;
+        Logs.err (fun m -> m "%s : %a" request_id Pgsql_io.pp_err err);
         Abbs_fc.return_err `Error
 
   let query_account_status ~request_id db account =
@@ -2656,6 +2691,7 @@ module Db = struct
               tag_query
               window_start
               window_end
+              branch
             ->
             ( drift_name,
               Api.Account.make @@ CCInt64.to_int installation_id,
@@ -2665,7 +2701,8 @@ module Db = struct
               CCOption.map2
                 (fun window_start window_end -> (window_start, window_end))
                 window_start
-                window_end )))
+                window_end,
+              branch )))
     >>= function
     | Ok _ as ret -> Abb.Future.return ret
     | Error (#Pgsql_io.err as err) ->
