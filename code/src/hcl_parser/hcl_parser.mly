@@ -207,15 +207,20 @@ attribute:
 
 (* Block type: [IDENTIFIER] or a keyword token. hclsyntax tokenizes
    [true], [false], [null] contextually, so [true { x = 1 }] is a valid
-   block with type [true]. [FOR] / [IN] / [IF] are intentionally excluded:
-   they'd shadow the attribute-with-keyword-name form ([for = 1] is a
-   legitimate attribute via [attr_identifier]) and would be ambiguous at
-   the start of the body. *)
+   block with type [true]. [in] works the same way: hclsyntax treats
+   [in] as an identifier outside for-expressions, so a block of type
+   [in] must parse (Snowflake provider data sources use it).
+   [in = 1] must stay an attribute. At the body start, [block_type]
+   reduces on the label / [{] lookaheads and [attr_identifier] reduces
+   on [EQUAL]. This is the same split that [true] / [false] / [null]
+   already use. [FOR] and [IF] stay excluded: no fixture needs them as
+   a block type. *)
 block_type:
   | IDENTIFIER { $1 }
   | TRUE { "true" }
   | FALSE { "false" }
   | NULL { "null" }
+  | IN { "in" }
 
 block:
   | block_type block_labels LBRACE NEWLINE+ body RBRACE

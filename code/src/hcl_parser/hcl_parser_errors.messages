@@ -5050,7 +5050,7 @@ BLOCK_LABEL_EXPECTED
 
 main: IDENTIFIER RPAREN
 ##
-## Ends in an error in state: 377.
+## Ends in an error in state: 378.
 ##
 ## block_type -> IDENTIFIER . [ TRUE STRING NULL LBRACE IN IF IDENTIFIER FOR FALSE ]
 ## identifier -> IDENTIFIER . [ EQUAL ]
@@ -5063,7 +5063,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE RPAREN
 ##
-## Ends in an error in state: 378.
+## Ends in an error in state: 379.
 ##
 ## block_type -> FALSE . [ TRUE STRING NULL LBRACE IN IF IDENTIFIER FOR FALSE ]
 ## identifier -> FALSE . [ EQUAL ]
@@ -5076,7 +5076,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE EQUAL FALSE NEWLINE RBRACE
 ##
-## Ends in an error in state: 379.
+## Ends in an error in state: 380.
 ##
 ## main -> list(NEWLINE) body . EOF [ # ]
 ##
@@ -5088,15 +5088,15 @@ main: FALSE EQUAL FALSE NEWLINE RBRACE
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 285, spurious reduction of production nonempty_list(NEWLINE) -> NEWLINE
-## In state 411, spurious reduction of production body ->
-## In state 412, spurious reduction of production body -> attribute nonempty_list(NEWLINE) body
+## In state 412, spurious reduction of production body ->
+## In state 413, spurious reduction of production body -> attribute nonempty_list(NEWLINE) body
 ##
 
 EXPR_UNEXPECTED_SYMBOL
 
 main: FALSE TRUE RPAREN
 ##
-## Ends in an error in state: 382.
+## Ends in an error in state: 383.
 ##
 ## block_labels -> TRUE . block_labels [ LBRACE ]
 ##
@@ -5108,7 +5108,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE STRING RPAREN
 ##
-## Ends in an error in state: 383.
+## Ends in an error in state: 384.
 ##
 ## block_labels -> STRING . block_labels [ LBRACE ]
 ##
@@ -5120,7 +5120,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE NULL RPAREN
 ##
-## Ends in an error in state: 384.
+## Ends in an error in state: 385.
 ##
 ## block_labels -> NULL . block_labels [ LBRACE ]
 ##
@@ -5132,7 +5132,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE IN RPAREN
 ##
-## Ends in an error in state: 385.
+## Ends in an error in state: 386.
 ##
 ## block_labels -> IN . block_labels [ LBRACE ]
 ##
@@ -5144,7 +5144,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE IF RPAREN
 ##
-## Ends in an error in state: 386.
+## Ends in an error in state: 387.
 ##
 ## block_labels -> IF . block_labels [ LBRACE ]
 ##
@@ -5156,7 +5156,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE IDENTIFIER RPAREN
 ##
-## Ends in an error in state: 387.
+## Ends in an error in state: 388.
 ##
 ## block_labels -> IDENTIFIER . block_labels [ LBRACE ]
 ##
@@ -5168,7 +5168,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE FOR RPAREN
 ##
-## Ends in an error in state: 388.
+## Ends in an error in state: 389.
 ##
 ## block_labels -> FOR . block_labels [ LBRACE ]
 ##
@@ -5180,7 +5180,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE FALSE RPAREN
 ##
-## Ends in an error in state: 389.
+## Ends in an error in state: 390.
 ##
 ## block_labels -> FALSE . block_labels [ LBRACE ]
 ##
@@ -5192,7 +5192,7 @@ BLOCK_LABEL_EXPECTED
 
 main: FALSE LBRACE STRING
 ##
-## Ends in an error in state: 399.
+## Ends in an error in state: 400.
 ##
 ## block -> block_type block_labels LBRACE . nonempty_list(NEWLINE) body RBRACE [ NEWLINE ]
 ## block_one_line -> block_type block_labels LBRACE . RBRACE [ NEWLINE ]
@@ -5206,7 +5206,7 @@ BLOCK_INLINE_ATTR_EXPECTED
 
 main: FALSE LBRACE NEWLINE STRING
 ##
-## Ends in an error in state: 401.
+## Ends in an error in state: 402.
 ##
 ## block -> block_type block_labels LBRACE nonempty_list(NEWLINE) . body RBRACE [ NEWLINE ]
 ##
@@ -5224,7 +5224,7 @@ EXPR_UNEXPECTED_SYMBOL
 
 main: FALSE LBRACE NEWLINE FALSE EQUAL FALSE NEWLINE EOF
 ##
-## Ends in an error in state: 402.
+## Ends in an error in state: 403.
 ##
 ## block -> block_type block_labels LBRACE nonempty_list(NEWLINE) body . RBRACE [ NEWLINE ]
 ##
@@ -5236,15 +5236,15 @@ main: FALSE LBRACE NEWLINE FALSE EQUAL FALSE NEWLINE EOF
 ## accurate view of the past (what has been recognized so far), they
 ## may provide an INCOMPLETE view of the future (what was expected next).
 ## In state 285, spurious reduction of production nonempty_list(NEWLINE) -> NEWLINE
-## In state 411, spurious reduction of production body ->
-## In state 412, spurious reduction of production body -> attribute nonempty_list(NEWLINE) body
+## In state 412, spurious reduction of production body ->
+## In state 413, spurious reduction of production body -> attribute nonempty_list(NEWLINE) body
 ##
 
 EXPR_UNEXPECTED_SYMBOL
 
 main: FALSE LBRACE RBRACE TRUE
 ##
-## Ends in an error in state: 404.
+## Ends in an error in state: 405.
 ##
 ## body -> block_one_line . nonempty_list(NEWLINE) body [ RBRACE EOF ]
 ##
@@ -5256,7 +5256,7 @@ BLOCK_NEWLINE_EXPECTED
 
 main: FALSE LBRACE RBRACE NEWLINE STRING
 ##
-## Ends in an error in state: 405.
+## Ends in an error in state: 406.
 ##
 ## body -> block_one_line nonempty_list(NEWLINE) . body [ RBRACE EOF ]
 ##
@@ -5274,7 +5274,7 @@ EXPR_UNEXPECTED_SYMBOL
 
 main: FALSE LBRACE NEWLINE RBRACE TRUE
 ##
-## Ends in an error in state: 407.
+## Ends in an error in state: 408.
 ##
 ## body -> block . nonempty_list(NEWLINE) body [ RBRACE EOF ]
 ##
@@ -5286,7 +5286,7 @@ BLOCK_NEWLINE_EXPECTED
 
 main: FALSE LBRACE NEWLINE RBRACE NEWLINE STRING
 ##
-## Ends in an error in state: 408.
+## Ends in an error in state: 409.
 ##
 ## body -> block nonempty_list(NEWLINE) . body [ RBRACE EOF ]
 ##
@@ -5304,7 +5304,7 @@ EXPR_UNEXPECTED_SYMBOL
 
 main: FALSE EQUAL FALSE RBRACE
 ##
-## Ends in an error in state: 410.
+## Ends in an error in state: 411.
 ##
 ## body -> attribute . nonempty_list(NEWLINE) body [ RBRACE EOF ]
 ##
@@ -5318,14 +5318,14 @@ main: FALSE EQUAL FALSE RBRACE
 ## In state 221, spurious reduction of production simple_expr -> FALSE
 ## In state 203, spurious reduction of production expr_term -> simple_expr
 ## In state 228, spurious reduction of production expr -> expr_term
-## In state 415, spurious reduction of production attribute -> attr_identifier EQUAL expr
+## In state 416, spurious reduction of production attribute -> attr_identifier EQUAL expr
 ##
 
 EXPR_UNEXPECTED_SYMBOL
 
 main: FALSE EQUAL FALSE NEWLINE STRING
 ##
-## Ends in an error in state: 411.
+## Ends in an error in state: 412.
 ##
 ## body -> attribute nonempty_list(NEWLINE) . body [ RBRACE EOF ]
 ##
@@ -5343,7 +5343,7 @@ EXPR_UNEXPECTED_SYMBOL
 
 main: FOR TRUE
 ##
-## Ends in an error in state: 413.
+## Ends in an error in state: 414.
 ##
 ## attribute -> attr_identifier . EQUAL expr [ RBRACE NEWLINE ]
 ##
@@ -5355,7 +5355,7 @@ ATTR_EQUALS_EXPECTED
 
 main: FALSE EQUAL RPAREN
 ##
-## Ends in an error in state: 414.
+## Ends in an error in state: 415.
 ##
 ## attribute -> attr_identifier EQUAL . expr [ RBRACE NEWLINE ]
 ##
@@ -5367,7 +5367,7 @@ ATTR_EXPR_EXPECTED
 
 main: FALSE EQUAL FALSE EOF
 ##
-## Ends in an error in state: 415.
+## Ends in an error in state: 416.
 ##
 ## attribute -> attr_identifier EQUAL expr . [ RBRACE NEWLINE ]
 ## binary_op -> expr . PLUS expr [ RBRACE QUESTION_MARK PLUS PERCENT NOT_EQUAL NEWLINE MULT MINUS LOG_OR LOG_AND LESS_THAN_EQUAL LESS_THAN IS_EQUAL GREATER_THAN_EQUAL GREATER_THAN DIV ]
@@ -5401,7 +5401,7 @@ UNEXPECTED_RBRACKET
 
 main: FALSE LBRACE FALSE EQUAL FALSE NEWLINE
 ##
-## Ends in an error in state: 416.
+## Ends in an error in state: 417.
 ##
 ## block_one_line -> block_type block_labels LBRACE attribute . RBRACE [ NEWLINE ]
 ##
@@ -5415,7 +5415,7 @@ main: FALSE LBRACE FALSE EQUAL FALSE NEWLINE
 ## In state 221, spurious reduction of production simple_expr -> FALSE
 ## In state 203, spurious reduction of production expr_term -> simple_expr
 ## In state 228, spurious reduction of production expr -> expr_term
-## In state 415, spurious reduction of production attribute -> attr_identifier EQUAL expr
+## In state 416, spurious reduction of production attribute -> attr_identifier EQUAL expr
 ##
 
 EXPR_UNEXPECTED_SYMBOL
