@@ -18,6 +18,14 @@ type err =
   ]
 [@@deriving show]
 
+(** What the control plane did with an invitation message. *)
+type invite_delivery =
+  [ `Emailed  (** The control plane sent the message through its mail provider. *)
+  | `Logged_only
+    (** The control plane has no mail provider key: it logged the message, and nobody was emailed.
+    *)
+  ]
+
 module type S = sig
   (** Who sets the installation up. [`In_app]: its first operator, through the console's setup flow.
       [`Out_of_band]: the deployment, outside the application; setup is then always complete. *)
@@ -43,11 +51,10 @@ module type S = sig
   (** Ask the control plane to email one tenant invitation, and report whether it was actually
       delivered.
 
-      The [bool] is {i delivered}, not {i accepted}: a control plane with no mail provider key logs
-      the message and answers [false]. Callers must treat [false] as "the invitation exists but
-      nobody was emailed" and surface the link for the inviter to pass on themselves — never as a
-      failure that discards the invitation. [`Not_configured_err] means the same: invitations are
-      then link-only. The [string option] names the transport that was used, for logging. *)
+      Callers must treat [`Logged_only] as "the invitation exists but nobody was emailed" and
+      surface the link for the inviter to pass on themselves — never as a failure that discards the
+      invitation. [`Not_configured_err] means the same: invitations are then link-only. The
+      [string option] names the transport that was used, for logging. *)
   val send_tenant_invite :
     config:Sgs_config.t ->
     identity:identity ->
@@ -58,5 +65,5 @@ module type S = sig
     accept_url:string ->
     expires_at:string ->
     idempotency_key:string ->
-    (bool * string option, [> err ]) result Abb.Future.t
+    (invite_delivery * string option, [> err ]) result Abb.Future.t
 end

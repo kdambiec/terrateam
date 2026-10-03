@@ -91,11 +91,13 @@ type admin_scope =
 val caps_for : admin:admin_scope -> Pgsql_io.t -> (Sg_caps.t, [> store_err ]) result Abb.Future.t
 
 (** Create a new user in the database. [admin] defaults to [`No]. [capabilities] defaults to
-    {!caps_for} (the [default_user_caps] setting, with the [admin] capability merged in). *)
+    {!caps_for} (the [default_user_caps] setting, with the [admin] capability merged in). Without
+    [password_hash], the user cannot sign in with a password. *)
 val store :
   ?email:string ->
   ?admin:admin_scope ->
   ?capabilities:Sg_caps.t ->
+  ?password_hash:string ->
   name:string ->
   type_:Type_.t ->
   Pgsql_io.t ->
@@ -160,7 +162,7 @@ val grant_tenant :
     That is more than a tenant-scoped endpoint may ask for. Narrowing a grant that covers more than
     the tenant in hand rewrites authority the caller does not own, and demotes an installation
     administrator without the guard that keeps the last one — so the membership endpoints refuse it
-    first, on {!Sgs_tenant_members_common.wider_grant}.
+    first, on {!Sgs_service_tenants_members_common.wider_grant}.
 
     There is deliberately no [except_login_session] escape hatch here, unlike {!grant_tenant}: the
     kept session would go on authorizing the right this call just took away. A caller revoking a

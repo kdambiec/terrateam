@@ -2,12 +2,6 @@ let src = Logs.Src.create "ep_status"
 
 module Logs = (val Logs.src_log src : Logs.LOG)
 
-module Sql = struct
-  let select_system_setting () =
-    Pgsql_io.Typed_sql.(
-      sql // Ret.jsonb /^ [%blob "./sql/select_system_setting.sql"] /% Var.text "key")
-end
-
 let response ~needs_setup ~mode =
   let body =
     Yojson.Safe.to_string
@@ -30,16 +24,12 @@ module Make (Cloud : Sgs_cloud.S) = struct
             Abb.Future.return (Brtl_ctx.set_response (response ~needs_setup:false ~mode) ctx)
         | `In_app -> (
             Pgsql_pool.with_conn storage ~f:(fun db ->
-                Pgsql_io.Prepared_stmt.fetch
-                  db
-                  (Sql.select_system_setting ())
-                  ~f:CCFun.id
-                  "setup_completed")
+                Sgs_setup_system_settings.fetch "setup_completed" db)
             >>= function
-            | Ok (value :: _) ->
+            | Ok (Some value) ->
                 let needs_setup = not (Yojson.Safe.equal value (`Bool true)) in
                 Abb.Future.return (Brtl_ctx.set_response (response ~needs_setup ~mode) ctx)
-            | Ok [] ->
+            | Ok None ->
                 Abb.Future.return (Brtl_ctx.set_response (response ~needs_setup:true ~mode) ctx)
             | Error (#Pgsql_pool.err as err) ->
                 Logs.err (fun m -> m "%s : DB_POOL_ERR : %a" token Pgsql_pool.pp_err err);

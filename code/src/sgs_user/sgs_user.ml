@@ -61,6 +61,7 @@ module Sql = struct
       /% Var.(option (text "email"))
       /% Var.(text "name")
       /% Var.(ud (text "type") Type_.to_string)
+      /% Var.(option (text "password_hash"))
       /% Var.json "capability_trie")
 
   let select_default_user_caps () =
@@ -250,7 +251,7 @@ let caps_or_default ?capabilities ~admin db =
   | Some c -> Abbs_fc.return_ok c
   | None -> caps_for ~admin db
 
-let store ?email ?(admin = `No) ?capabilities ~name ~type_ db =
+let store ?email ?(admin = `No) ?capabilities ?password_hash ~name ~type_ db =
   let open Abbs_fc.Infix_result_monad in
   caps_or_default ?capabilities ~admin db
   >>= fun capabilities ->
@@ -261,6 +262,7 @@ let store ?email ?(admin = `No) ?capabilities ~name ~type_ db =
     email
     name
     type_
+    password_hash
     (Sg_caps_json.to_json capabilities)
   >>= function
   | id :: _ ->
