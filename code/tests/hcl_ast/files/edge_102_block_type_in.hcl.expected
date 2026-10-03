@@ -1,0 +1,21 @@
+[
+  [
+    "Block",
+    {
+      "type_": "data",
+      "labels": [ [ "Lit", "snowflake_schemas" ], [ "Lit", "database_schemas" ] ],
+      "body": [
+        [
+          "Block",
+          {
+            "type_": "in",
+            "labels": [],
+            "body": [ [ "Attribute", "database", [ "Attr", [ [ "Id", "var" ], [ "A_string", "database_name" ] ] ] ] ]
+          }
+        ],
+        [ "Attribute", "with_describe", [ "Bool", false ] ],
+        [ "Attribute", "with_parameters", [ "Bool", false ] ]
+      ]
+    }
+  ]
+]
