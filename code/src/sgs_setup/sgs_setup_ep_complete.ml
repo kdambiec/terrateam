@@ -3,12 +3,6 @@ let src = Logs.Src.create "ep_complete"
 module Logs = (val Logs.src_log src : Logs.LOG)
 module Fc = Abbs_fc
 
-module Sql = struct
-  let upsert_system_setting () =
-    Pgsql_io.Typed_sql.(
-      sql /^ [%blob "./sql/upsert_system_setting.sql"] /% Var.text "key" /% Var.json "value")
-end
-
 let json_error ~status ~id ?data ctx =
   let error_response = { Sgs_api_components_error_response.id; data } in
   let body = Yojson.Safe.to_string @@ Sgs_api_components_error_response.to_yojson error_response in
@@ -22,9 +16,7 @@ let run' ~requirement config db =
   Sgs_service_license.passes_license_gate ~requirement config db
   >>= fun licensed ->
   if not licensed then Abbs_fc.return_ok `License_required
-  else
-    Pgsql_io.Prepared_stmt.execute db (Sql.upsert_system_setting ()) "setup_completed" (`Bool true)
-    >>| fun () -> `Completed
+  else Sgs_setup_system_settings.store "setup_completed" (`Bool true) db >>| fun () -> `Completed
 
 let run ~requirement config storage =
   Brtl_ep.run_json ~f:(fun ctx ->

@@ -1,0 +1,32 @@
+(library
+ (name sgs_service_tenants)
+ (wrapped false)
+ (libraries
+  abb
+  abbs
+  base64
+  brtl
+  brtl_ep
+  cohttp
+  containers
+  digestif
+  logs
+  mirage-crypto-rng
+  pgsql_io
+  pgsql_pool
+  sg_caps_ops
+  sgs_api
+  sgs_cloud
+  sgs_config
+  sgs_eplib
+  sgs_service
+  sgs_storage
+  sgs_tenant
+  sgs_user
+  uri
+  uuidm
+  yojson)
+ (preprocessor_deps
+  (glob_files_rec sql/*))
+ (preprocess
+  (pps ppx_blob ppx_deriving.show)))

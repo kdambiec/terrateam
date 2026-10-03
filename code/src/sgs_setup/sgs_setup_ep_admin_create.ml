@@ -3,27 +3,6 @@ let src = Logs.Src.create "ep_admin_create"
 module Logs = (val Logs.src_log src : Logs.LOG)
 module Fc = Abbs_fc
 
-module Sql = struct
-  let count_users () =
-    Pgsql_io.Typed_sql.(sql // Ret.bigint /^ "select count(*) from users where type = 'user'")
-
-  let create_user () =
-    Pgsql_io.Typed_sql.(
-      sql
-      // Ret.uuid
-      /^ "insert into users (email, name, password_hash, type, capability_trie, \
-          base_capability_trie) values ($email, $name, $password_hash, 'user', $capability_trie, \
-          $capability_trie) returning id"
-      /% Var.text "email"
-      /% Var.text "name"
-      /% Var.text "password_hash"
-      /% Var.json "capability_trie")
-
-  let upsert_system_setting () =
-    Pgsql_io.Typed_sql.(
-      sql /^ [%blob "./sql/upsert_system_setting.sql"] /% Var.text "key" /% Var.json "value")
-end
-
 let add_user_to_default_tenant token db default_tenant_name user user_id =
   let open Fc.Infix_result_monad in
   match default_tenant_name with
@@ -52,51 +31,39 @@ let run' ?default_tenant_name ~requirement config token db email password name =
   if not licensed then Abbs_fc.return_err `License_required_err
   else
     (* Check: No users exist *)
-    Pgsql_io.Prepared_stmt.fetch db (Sql.count_users ()) ~f:CCFun.id
+    Sgs_user.has_human_users db
     >>= function
-    | count :: _ when count > 0L ->
+    | true ->
         Logs.warn (fun m ->
             m "%s : SETUP_ALREADY_COMPLETE Admin creation attempted but users exist" token);
         Abbs_fc.return_err `Users_exist_err
-    | _ -> (
+    | false ->
         (* Hash password *)
         let password_hash = Sgs_user_password.hash password in
         Sgs_user.caps_for ~admin:`Instance db
         >>= fun capabilities ->
         (* Create user *)
-        Pgsql_io.Prepared_stmt.fetch
-          db
-          (Sql.create_user ())
-          ~f:CCFun.id
-          email
-          name
-          password_hash
-          (Sg_caps_json.to_json capabilities)
-        >>= function
-        | user_id :: _ ->
-            Logs.info (fun m ->
-                m "%s : SETUP_ADMIN_CREATED Created admin user %a" token Uuidm.pp user_id);
-            let user = Sgs_user.make ~id:user_id () in
-            add_user_to_default_tenant token db default_tenant_name user user_id
-            >>= fun () ->
-            (* Fetch encryption key for session *)
-            Sgs_user_session.Session.fetch_key db
-            >>= fun key ->
-            (* DB-backed login session; capability changes revoke it. *)
-            Sgs_user_session.Session.create_login ~capabilities user db
-            >>= fun session ->
-            Fc.to_result @@ Sgs_user_session.Session.to_token ~key session
-            >>= fun session_token ->
-            (* Mark setup as completed *)
-            Pgsql_io.Prepared_stmt.execute
-              db
-              (Sql.upsert_system_setting ())
-              "setup_completed"
-              (`Bool true)
-            >>| fun () ->
-            Logs.info (fun m -> m "%s : SETUP_COMPLETE Setup completed" token);
-            (user_id, session_token)
-        | [] -> assert false)
+        Sgs_user.store ~email ~capabilities ~password_hash ~name ~type_:Sgs_user.Type_.User db
+        >>= fun stored ->
+        let user_id = Sgs_user.id stored in
+        Logs.info (fun m ->
+            m "%s : SETUP_ADMIN_CREATED Created admin user %a" token Uuidm.pp user_id);
+        let user = Sgs_user.make ~id:user_id () in
+        add_user_to_default_tenant token db default_tenant_name user user_id
+        >>= fun () ->
+        (* Fetch encryption key for session *)
+        Sgs_user_session.Session.fetch_key db
+        >>= fun key ->
+        (* DB-backed login session; capability changes revoke it. *)
+        Sgs_user_session.Session.create_login ~capabilities user db
+        >>= fun session ->
+        Fc.to_result @@ Sgs_user_session.Session.to_token ~key session
+        >>= fun session_token ->
+        (* Mark setup as completed *)
+        Sgs_setup_system_settings.store "setup_completed" (`Bool true) db
+        >>| fun () ->
+        Logs.info (fun m -> m "%s : SETUP_COMPLETE Setup completed" token);
+        (user_id, session_token)
 
 let internal_error_body =
   Sgs_eplib.error_response_body ~id:"INTERNAL_SERVER_ERROR" ~data:"Failed to create admin user"

@@ -11,6 +11,11 @@ type err =
   ]
 [@@deriving show]
 
+type invite_delivery =
+  [ `Emailed
+  | `Logged_only
+  ]
+
 module type S = sig
   val setup : unit -> [ `In_app | `Out_of_band ]
   val new_user_tenant : unit -> [ `Default_tenant | `Personal_tenant ]
@@ -30,5 +35,5 @@ module type S = sig
     accept_url:string ->
     expires_at:string ->
     idempotency_key:string ->
-    (bool * string option, [> err ]) result Abb.Future.t
+    (invite_delivery * string option, [> err ]) result Abb.Future.t
 end
